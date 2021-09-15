@@ -1,0 +1,94 @@
+---
+  AWSTemplateFormatVersion: '2010-09-09'
+  Description: "PA VPC NAT gateways"
+  Metadata:  {}
+
+  Parameters:
+    pVPCNAME:
+      Type: String
+
+  Resources:
+    EKSCluster:
+        Type: "AWS::EKS::Cluster"
+        Properties:
+            Name: "eks-pa-1"
+            RoleArn: "arn:aws:iam::186319575019:role/myAmazonEKSClusterRole"
+            Version: "1.20"
+            ResourcesVpcConfig: 
+                SecurityGroupIds: 
+                  - Fn::ImportValue:
+                      Fn::Sub: "EXP-${pVPCNAME}-SecurityGroupPriv1"
+                SubnetIds: 
+                  - Fn::ImportValue:
+                      Fn::Sub: "EXP-${pVPCNAME}-EC2SubnetPriv1a" 
+                  - Fn::ImportValue:  
+                      Fn::Sub: "EXP-${pVPCNAME}-EC2SubnetPriv1b"
+    EKSNodegroup:
+        Type: "AWS::EKS::Nodegroup"
+        DependsOn: EKSCluster
+        Properties:
+            NodegroupName: "ng-2"
+            ClusterName: !Ref EKSCluster
+            Version: "1.20"
+            ReleaseVersion: "1.20.7-20210830"
+            ScalingConfig: 
+                MinSize: 2
+                MaxSize: 2
+                DesiredSize: 2
+            InstanceTypes: 
+              - "t3.medium"
+            Subnets: 
+              - Fn::ImportValue:
+                  Fn::Sub: "EXP-${pVPCNAME}-EC2SubnetPriv1a" 
+              - Fn::ImportValue:  
+                  Fn::Sub: "EXP-${pVPCNAME}-EC2SubnetPriv1b"
+            RemoteAccess: 
+                Ec2SshKey: "birender"
+                SourceSecurityGroups: 
+                  - Fn::ImportValue:  
+                      Fn::Sub: "EXP-${pVPCNAME}-SecurityGroupPub1"
+            AmiType: "AL2_x86_64"
+            NodeRole: "arn:aws:iam::186319575019:role/Fonetwish_Node_role"
+            Labels: {}
+            DiskSize: 20
+            Tags: {}
+            CapacityType: "ON_DEMAND" 
+    EKSAddon:
+        Type: "AWS::EKS::Addon"
+        DependsOn: EKSCluster
+        Properties:
+            AddonName: "coredns"
+            AddonVersion: "v1.8.3-eksbuild.1"
+            ClusterName: !Ref EKSCluster
+
+    EKSAddon2:
+        Type: "AWS::EKS::Addon"
+        DependsOn: EKSAddon
+        Properties:
+            AddonName: "vpc-cni"
+            AddonVersion: "v1.7.5-eksbuild.2"
+            ClusterName: !Ref EKSCluster
+
+    EKSAddon3:
+        Type: "AWS::EKS::Addon"
+        DependsOn: EKSAddon2
+        Properties:
+            AddonName: "kube-proxy"
+            AddonVersion: "v1.20.4-eksbuild.2"
+            ClusterName: !Ref EKSCluster          
+           
+  Outputs:
+    outEKSCluster1:
+      Description: Reference to EKS
+      Value:
+        Ref: EKSCluster
+      Export:
+        Name: 
+          Fn::Sub: "EXP-${pVPCNAME}-EKSCluster01"
+    outEKSClusterNodeGroup:
+      Description: Reference to EKS EKSNodegroup
+      Value:
+        Ref: EKSNodegroup
+      Export:
+        Name: 
+          Fn::Sub: "EXP-${pVPCNAME}-EKSNodegroup01"    
