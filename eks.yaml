@@ -6,6 +6,7 @@
   Parameters:
     pVPCNAME:
       Type: String
+       Default: pa-vpc
 
   Resources:
     EKSCluster:
